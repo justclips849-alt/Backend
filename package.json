@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "ClarityAI Express Backend",
   "main": "index.js",
+  "type": "commonjs",  <-- 🛑 ADDED THIS LINE TO FIX THE REQUIRE ERROR
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
