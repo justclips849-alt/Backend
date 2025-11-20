@@ -3,7 +3,7 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
-// 🛑 FIX: Corrected typo from 'require = require'
+// FIXED: Corrected typo from 'require = require'
 const bcrypt = require('bcryptjs') 
 const jwt = require('jsonwebtoken')
 const mysql = require('mysql2/promise')
@@ -13,7 +13,7 @@ const path = require('path')
 const app = express()
 
 const PORT = process.env.PORT || 3000
-// We no longer rely on CLIENT_URL for the frontend, but keep it for external access (APIs, etc.)
+// CLIENT_URL is used for CORS on external requests, but the app serves the frontend directly now.
 const CLIENT_URL = process.env.CLIENT_URL || 'https://davs8.dreamhosters.com' 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
 
@@ -28,7 +28,6 @@ const requiredEnv = [
 const missing = requiredEnv.filter((key) => !process.env[key])
 if (missing.length) {
   console.error('Missing MySQL env vars:', missing.join(', '))
-  // This crash is correct if variables are missing
   process.exit(1)
 }
 
@@ -46,7 +45,7 @@ const pool = mysql.createPool({
 app.use(express.json())
 app.use(cookieParser())
 
-// 1. Serve static files from the 'public' directory (CSS, JS, images, etc.)
+// 1. Serve static files (CSS, JS, images, etc.) from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')))
 
 // 2. CORS: Handles requests coming from external origins if needed.
@@ -202,6 +201,7 @@ app.get('/', (req, res) => {
 
 // Serve index.html for all other non-API routes (for frontend routing)
 app.get('*', (req, res) => {
+    // This ensures URLs like /dashboard or /profile still load the SPA shell
     if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     }
