@@ -3,11 +3,11 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
-// 🛑 FIX: Removed the extra '= require'
+// 🛑 FIX: Corrected typo from 'require = require'
 const bcrypt = require('bcryptjs') 
 const jwt = require('jsonwebtoken')
 const mysql = require('mysql2/promise')
-// 🛑 NEW: Path for serving static files
+// Required to serve static files
 const path = require('path') 
 
 const app = express()
@@ -46,10 +46,10 @@ const pool = mysql.createPool({
 app.use(express.json())
 app.use(cookieParser())
 
-// 🛑 IMPORTANT: Serve the index.html file from the 'public' folder as the root page
+// 1. Serve static files from the 'public' directory (CSS, JS, images, etc.)
 app.use(express.static(path.join(__dirname, 'public')))
 
-// 🛑 CORS: This middleware handles requests coming from external origins if needed.
+// 2. CORS: Handles requests coming from external origins if needed.
 app.use(
   cors({
     origin: CLIENT_URL, 
@@ -193,6 +193,20 @@ app.get('/api/auth/me', async (req, res) => {
     res.status(401).json({ error: 'Invalid or expired token.' })
   }
 })
+
+// 3. 🛑 CATCH-ALL ROUTING FIXES
+// Explicitly serve index.html for the root path
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Serve index.html for all other non-API routes (for frontend routing)
+app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+});
+// ------------------------------
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`)
