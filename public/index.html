@@ -632,8 +632,9 @@
 </div>
 
 <script>
-    // 🛑 IMPORTANT: Replace this with your Railway backend URL
-    const BACKEND_URL = 'https://backend-production-a1dd.up.railway.app'; 
+    // 🛑 CRITICAL FIX: Since the frontend is now hosted on the same domain as the backend, 
+    // we use an empty string for the base URL to make relative calls (e.g., to /api/auth/login).
+    const BACKEND_URL = ''; 
     
     // --- Utility Functions ---
 
@@ -680,7 +681,7 @@
         adjustContainerHeight();
     }
 
-    // --- 1. Login Handler (FIXED ReferenceError) ---
+    // --- 1. Login Handler (FIXED ReferenceError & using Relative Path) ---
     async function handleLogin(event) {
         event.preventDefault();
         hideLoginError();
@@ -717,8 +718,8 @@
             }
         } catch (error) {
             console.error('Fetch error:', error);
-            // This catches network errors (CORS, server down, etc.)
-            showLoginError('Network Error. Cannot connect to the server. (Check backend status)', true);
+            // This catches true network failures
+            showLoginError('Network Error. Cannot connect to the server.', true);
         } finally {
             // Restore button state only if the request failed or wasn't successful
             if (!response || !response.ok) {
@@ -781,7 +782,7 @@
             }
         } catch (error) {
             console.error('Fetch error:', error);
-            passwordError.textContent = 'Network Error. Could not register. (Check backend status)';
+            passwordError.textContent = 'Network Error. Could not register.';
             passwordError.style.display = 'block';
             triggerShake();
         } finally {
