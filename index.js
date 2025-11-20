@@ -10,7 +10,7 @@ const mysql = require('mysql2/promise')
 const app = express()
 
 const PORT = process.env.PORT || 3000
-// Ensure this environment variable matches the origin of your frontend!
+// Ensure this environment variable is set to 'https://davs8.dreamhosters.com' on Railway.
 const CLIENT_URL = process.env.CLIENT_URL || 'https://davs8.dreamhosters.com' 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
 
@@ -42,11 +42,11 @@ const pool = mysql.createPool({
 app.use(express.json())
 app.use(cookieParser())
 
-// 🛑 CORS FIX: Explicitly allows your single frontend origin
+// 🛑 CORS FIX: Configures the server to allow requests from your frontend domain.
 app.use(
   cors({
     origin: CLIENT_URL, 
-    credentials: true 
+    credentials: true // Crucial for sending/receiving the auth cookie
   })
 )
 
