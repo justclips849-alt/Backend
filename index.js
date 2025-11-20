@@ -45,8 +45,8 @@ const pool = mysql.createPool({
 app.use(express.json())
 app.use(cookieParser())
 
-// 1. Serve static files (CSS, JS, images, etc.) from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')))
+// 🛑 TEMPORARILY REMOVED: app.use(express.static(path.join(__dirname, 'public')))
+// We will test the explicit route first to avoid middleware interference.
 
 // 2. CORS: Handles requests coming from external origins if needed.
 app.use(
@@ -194,18 +194,14 @@ app.get('/api/auth/me', async (req, res) => {
 })
 
 // 3. 🛑 CATCH-ALL ROUTING FIXES
-// Explicitly serve index.html for the root path
+// Explicitly serve index.html for the root path (the only route we are testing now)
 app.get('/', (req, res) => {
+    // If this route works, it confirms the file structure and path.join are correct.
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve index.html for all other non-API routes (for frontend routing)
-app.get('*', (req, res) => {
-    // This ensures URLs like /dashboard or /profile still load the SPA shell
-    if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    }
-});
+// REMOVED: app.get('*', ...)
+
 // ------------------------------
 
 app.listen(PORT, () => {
