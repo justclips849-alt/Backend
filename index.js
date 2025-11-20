@@ -10,8 +10,8 @@ const mysql = require('mysql2/promise')
 const app = express()
 
 const PORT = process.env.PORT || 3000
-// IMPORTANT: The CLIENT_URL must be set exactly to 'https://davs8.dreamhosters.com'
-const CLIENT_URL = process.env.CLIENT_URL || 'https://davs8.dreamhosters.com'
+// Ensure this environment variable matches the origin of your frontend!
+const CLIENT_URL = process.env.CLIENT_URL || 'https://davs8.dreamhosters.com' 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
 
 const requiredEnv = [
@@ -42,14 +42,11 @@ const pool = mysql.createPool({
 app.use(express.json())
 app.use(cookieParser())
 
-// 🛑 FIX FOR CORS ERROR:
-// This configuration explicitly sets the Access-Control-Allow-Origin header
-// to the CLIENT_URL, ensuring the preflight (OPTIONS) and main requests
-// from your frontend are accepted by the backend.
+// 🛑 CORS FIX: Explicitly allows your single frontend origin
 app.use(
   cors({
-    origin: CLIENT_URL, // Directly trusts the single origin
-    credentials: true // Crucial for sending cookies (auth_token)
+    origin: CLIENT_URL, 
+    credentials: true 
   })
 )
 
@@ -85,8 +82,7 @@ function signToken(user) {
 function setAuthCookie(res, token) {
   res.cookie('auth_token', token, {
     httpOnly: true,
-    // Set 'secure' to true if your backend uses HTTPS (like on Railway)
-    secure: process.env.NODE_ENV === 'production', 
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000
   })
@@ -181,7 +177,7 @@ app.get('/api/auth/me', async (req, res) => {
 
     if (!rows[0]) {
       return res.status(404).json({ error: 'User not found.' })
-        }
+    }
 
     res.json({ user: rows[0] })
   } catch (err) {
