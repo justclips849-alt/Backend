@@ -10,7 +10,7 @@ const mysql = require('mysql2/promise')
 const app = express()
 
 const PORT = process.env.PORT || 3000
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5500'
+const CLIENT_URL = process.env.CLIENT_URL || 'https://davs8.dreamhosters.com'
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
 
 const requiredEnv = [
@@ -43,7 +43,13 @@ app.use(cookieParser())
 
 app.use(
   cors({
-    origin: CLIENT_URL,
+    origin: function (origin, callback) {
+      if (!origin || origin === CLIENT_URL) {
+        callback(null, true)
+      } else {
+        callback(null, false)
+      }
+    },
     credentials: true
   })
 )
