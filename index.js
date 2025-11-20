@@ -3,7 +3,8 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
-const bcrypt = require = require('bcryptjs')
+// 🛑 FIX: Removed the extra '= require'
+const bcrypt = require('bcryptjs') 
 const jwt = require('jsonwebtoken')
 const mysql = require('mysql2/promise')
 // 🛑 NEW: Path for serving static files
@@ -16,8 +17,6 @@ const PORT = process.env.PORT || 3000
 const CLIENT_URL = process.env.CLIENT_URL || 'https://davs8.dreamhosters.com' 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
 
-// ... (Rest of your MySQL pool setup code remains the same) ...
-
 const requiredEnv = [
   'MYSQLHOST',
   'MYSQLPORT',
@@ -29,6 +28,7 @@ const requiredEnv = [
 const missing = requiredEnv.filter((key) => !process.env[key])
 if (missing.length) {
   console.error('Missing MySQL env vars:', missing.join(', '))
+  // This crash is correct if variables are missing
   process.exit(1)
 }
 
@@ -46,19 +46,16 @@ const pool = mysql.createPool({
 app.use(express.json())
 app.use(cookieParser())
 
-// 🛑 IMPORTANT: Serve the index.html file as the root page
+// 🛑 IMPORTANT: Serve the index.html file from the 'public' folder as the root page
 app.use(express.static(path.join(__dirname, 'public')))
 
-// 🛑 CORS: Keep the CORS setup for external API calls, but the browser accessing 
-// the index.html on the same domain won't trigger the block.
+// 🛑 CORS: This middleware handles requests coming from external origins if needed.
 app.use(
   cors({
     origin: CLIENT_URL, 
     credentials: true 
   })
 )
-
-// The rest of your functions (findUserByEmail, createUser, signToken, etc.) remain here...
 
 async function findUserByEmail(email) {
   const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email])
@@ -98,14 +95,9 @@ function setAuthCookie(res, token) {
   })
 }
 
-// 🛑 OLD: app.get('/') is no longer needed because express.static handles the root file
-// app.get('/', (req, res) => {
-//   res.send('ClarityAI backend is running.')
-// }) 
-
-// You can still keep this GET route if you want to test the API directly
+// Route to check API status explicitly
 app.get('/api/status', (req, res) => {
-    res.send('ClarityAI backend API is running.')
+  res.send('ClarityAI backend API is running.')
 })
 
 app.post('/api/auth/signup', async (req, res) => {
