@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClarityAI - Access Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #10a37f;
+            --primary-dark: #0d8a6f;
+            --background-dark: #0c121e;
+            --card-color: #ffffff;
+            --text-color: #1e293b;
+            --subtle-text: #64748b;
+            --muted-bg: #f8fafc;
+            --error-color: #ef4444;
+            --input-border: #e2e8f0;
+            --focus-glow: #10a37f40;
+            --shadow-card: 0 18px 40px rgba(15, 23, 42, 0.65);
+            --chat-bubble-bg: #1e293b;
+            --chat-bubble-text: #e2e8f0;
+            --mouse-x: 50%;
+            --mouse-y: 50%;
+        }
+
+        @keyframes network-flow {
+            from { background-position: 0 0; }
+            to { background-position: 5000px 5000px; }
+        }
+
+        @keyframes float-message {
+            0% { opacity: 0; transform: translate(0, 0) scale(0.8); }
+            10% { opacity: 0.6; transform: translate(calc(var(--x-offset) * 0.1), calc(var(--y-offset) * 0.1)) scale(1); }
+            50% { opacity: 0.5; }
+            80% { opacity: 0.4; transform: translate(calc(var(--x-offset) * 0.8), calc(var(--y-offset) * 0.8)) scale(0.95); }
+            100% { opacity: 0; transform: translate(var(--x-offset), var(--y-offset)) scale(0.8); }
+        }
+
+        @keyframes pulse-alive {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 163, 127, 0); }
+            50% { box-shadow: 0 0 10px rgba(16, 163, 127, 0.12); }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        @keyframes shake {
+            0%   { transform: translateX(0); }
+            15%  { transform: translateX(-4px); }
+            30%  { transform: translateX(4px); }
+            45%  { transform: translateX(-3px); }
+            60%  { transform: translateX(3px); }
+            75%  { transform: translateX(-2px); }
+            100% { transform: translateX(0); }
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-dark);
+            background-image: radial-gradient(#202d44 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: network-flow 100s linear infinite;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            overflow: hidden;
+            position: relative;
+            color: var(--text-color);
+        }
+
+        /* Interactive glow over the dotted grid */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at var(--mouse-x) var(--mouse-y), rgba(148, 163, 184, 0.35), transparent 55%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 0;
+        }
+
+        body.bg-hover::before {
+            opacity: 1;
+        }
+
+        /* Soft glowing background orbs */
+        .bg-orb {
+            position: fixed;
+            border-radius: 999px;
+            filter: blur(45px);
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-orb.orb-1 {
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle at center, rgba(16, 163, 127, 0.75), transparent 60%);
+            top: -60px;
+            left: -40px;
+        }
+
+        .bg-orb.orb-2 {
+            width: 360px;
+            height: 360px;
+            background: radial-gradient(circle at center, rgba(59, 130, 246, 0.6), transparent 65%);
+            bottom: -80px;
+            right: -60px;
+        }
+
+        /* --- COMPACT MAIN CONTAINER --- */
+        .container {
+            width: 100%;
+            max-width: 340px;
+            padding: 18px 20px 20px;
+            background: radial-gradient(circle at top left, #ffffff 0%, #f1f5f9 55%, #e5eef9 100%);
+            border-radius: 18px;
+            box-shadow: var(--shadow-card);
+            z-index: 100;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            transition:
+                height 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+                box-shadow 0.25s ease,
+                transform 0.25s ease,
+                border-color 0.25s ease;
+        }
+
+        .container::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                135deg,
+                rgba(16, 163, 127, 0.07),
+                transparent 40%,
+                rgba(59, 130, 246, 0.06)
+            );
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .container-inner {
+            position: relative;
+            z-index: 1;
+        }
+
+        .container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 22px 50px rgba(15, 23, 42, 0.85);
+            border-color: rgba(16, 163, 127, 0.55);
+        }
+
+        .container.shake {
+            animation: shake 0.35s ease;
+        }
+
+        /* --- HEADER (Centered) --- */
+        .header {
+            text-align: center;
+            margin-bottom: 0.9rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+        }
+
+        .header p {
+            font-size: 0.78rem;
+            color: var(--subtle-text);
+            margin-top: 5px;
+            margin-bottom: 0;
+        }
+
+        /* --- TABS --- */
+        .tab-toggle {
+            display: flex;
+            margin-top: 0.9rem;
+            margin-bottom: 0.95rem;
+            border-radius: 999px;
+            background-color: rgba(148, 163, 184, 0.15);
+            padding: 3px;
+            gap: 2px;
+        }
+
+        .tab-toggle button {
+            flex: 1;
+            padding: 0.45rem 0.35rem;
+            border: none;
+            background-color: transparent;
+            color: var(--subtle-text);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 999px;
+            transition: all 0.18s ease;
+            position: relative;
+        }
+
+        .tab-toggle button.active {
+            background-color: #ffffff;
+            color: var(--primary-color);
+            box-shadow: 0 3px 8px rgba(15, 23, 42, 0.15);
+        }
+
+        .tab-toggle button.active::after {
+            content: "";
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            width: 14px;
+            height: 2px;
+            border-radius: 999px;
+            background-color: rgba(16, 163, 127, 0.5);
+            transform: translateX(-50%);
+        }
+
+        /* --- FORMS --- */
+        .form-wrapper {
+            position: relative;
+        }
+
+        .form-content {
+            display: none;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .form-content.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .form-group {
+            margin-bottom: 0.75rem;
+        }
+
+        .form-group label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+            font-size: 0.73rem;
+            color: #334155;
+        }
+
+        .form-group small {
+            font-size: 0.65rem;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 7px 9px;
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            font-size: 0.88rem;
+            box-sizing: border-box;
+            color: var(--text-color);
+            background-color: var(--muted-bg);
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, transform 0.08s ease;
+        }
+
+        .form-group input::placeholder {
+            color: #9ca3af;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px var(--focus-glow);
+            background-color: #ffffff;
+            transform: translateY(-0.5px);
+        }
+
+        /* --- ACTION BUTTON --- */
+        .submit-btn {
+            width: 100%;
+            padding: 9px;
+            background: linear-gradient(135deg, var(--primary-color), #0ea27a);
+            color: #ffffff;
+            border: none;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition:
+                background 0.15s ease,
+                box-shadow 0.15s ease,
+                transform 0.08s ease;
+            margin-top: 0.25rem;
+            box-shadow: 0 8px 18px rgba(16, 163, 127, 0.35);
+        }
+
+        .submit-btn:hover {
+            background: linear-gradient(135deg, var(--primary-dark), #0b8a66);
+            box-shadow: 0 10px 20px rgba(16, 163, 127, 0.42);
+            transform: translateY(-1px);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 6px 14px rgba(16, 163, 127, 0.33);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* --- FORGOT PASSWORD --- */
+        .forgot-password-container {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
+            text-align: right;
+            margin-bottom: 0;
+        }
+
+        .forgot-password-container.visible {
+            max-height: 32px;
+            opacity: 1;
+            margin-bottom: 0.4rem;
+        }
+
+        .forgot-password-container a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .forgot-password-container a:hover {
+            text-decoration: underline;
+        }
+
+        /* --- ERROR MESSAGE --- */
+        .error-message {
+            color: var(--error-color);
+            font-size: 0.75rem;
+            margin-top: 0.35rem;
+            margin-bottom: 0.35rem;
+            display: none;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        /* --- DIVIDER & SOCIAL --- */
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 0.75rem 0 0.65rem;
+            color: #94a3b8;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .divider::before { margin-right: 0.5em; }
+        .divider::after { margin-left: 0.5em; }
+
+        .social-login {
+            display: flex;
+            gap: 7px;
+            justify-content: center;
+        }
+
+        .social-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 7px;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+
+        .social-btn:hover {
+            background-color: #f9fafb;
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
+        }
+
+        .social-btn:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .social-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* --- FLOATING BUBBLES --- */
+        .floating-message {
+            position: absolute;
+            color: var(--chat-bubble-text);
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 10px 18px;
+            background-color: var(--chat-bubble-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            opacity: 0;
+            pointer-events: auto;
+            will-change: transform, opacity;
+            animation:
+                float-message var(--duration) linear infinite,
+                pulse-alive 3s infinite ease-in-out;
+            cursor: grab;
+            z-index: 10;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            width: fit-content;
+            max-width: 200px;
+            box-sizing: border-box;
+        }
+
+        .floating-message:active {
+            cursor: grabbing;
+        }
+
+        .floating-message:hover {
+            transform: scale(1.1);
+            background-color: #253248;
+            z-index: 50;
+            border-color: rgba(16, 163, 127, 0.3);
+        }
+
+        .floating-message.expanded {
+            width: 320px !important;
+            max-width: 320px;
+            border-radius: 12px;
+            background-color: #162032;
+            border-color: var(--primary-color);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            z-index: 200;
+            cursor: default;
+            padding: 20px;
+            opacity: 1 !important;
+            animation: none !important;
+            transform: translate(-50%, -50%) !important;
+        }
+
+        .msg-question {
+            margin-bottom: 0;
+            transition: margin 0.3s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .expanded .msg-question {
+            margin-bottom: 12px;
+            color: var(--primary-color);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            white-space: normal;
+        }
+
+        .msg-answer {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #ffffff;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .expanded .msg-answer {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background-color: var(--primary-color);
+            animation: blink 1s infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<div class="container" id="main-container">
+    <div class="container-inner">
+        <div class="header">
+            <h1>ClarityAI</h1>
+            <p>Sign in to organize your goals and projects.</p>
+        </div>
+
+        <div class="tab-toggle">
+            <button id="login-tab" class="active" onclick="switchTab('login')">Sign In</button>
+            <button id="signup-tab" onclick="switchTab('signup')">Register</button>
+        </div>
+
+        <div class="form-wrapper">
+            <div id="login-form" class="form-content active">
+                <form id="login-form-element" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>
+                            <span>Email</span>
+                            <small>Work or personal</small>
+                        </label>
+                        <input type="email" id="login-email" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <span>Password</span>
+                            <small>Keep it secure</small>
+                        </label>
+                        <input type="password" id="login-password" required placeholder="••••••••">
+                    </div>
+
+                    <div class="forgot-password-container" id="forgot-pw-container">
+                        <a href="#">Forgot password?</a>
+                    </div>
+
+                    <div id="login-error" class="error-message"></div>
+
+                    <button type="submit" class="submit-btn">Sign In</button>
+                </form>
+
+                <div class="divider">Or continue with</div>
+
+                <div class="social-login">
+                    <button class="social-btn" type="button">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                    </button>
+                    <button class="social-btn" type="button">
+                        <svg viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 52.3-11.4 69.5-34.3z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="signup-form" class="form-content">
+                <form id="signup-form-element"> 
+                    <div class="form-group">
+                        <label>
+                            <span>Email</span>
+                            <small>For workspace invites</small>
+                        </label>
+                        <input type="email" id="signup-email" name="email" required placeholder="business@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <span>Password</span>
+                            <small>8+ characters</small>
+                        </label>
+                        <input type="password" id="signup-password" name="password" required minlength="8" placeholder="8+ chars">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <span>Confirm</span>
+                            <small>Repeat password</small>
+                        </label>
+                        <input type="password" id="signup-confirm-password" name="confirm_password" required placeholder="Repeat">
+                    </div>
+
+                    <div id="password-error" class="error-message">Passwords do not match.</div>
+                    <button type="submit" class="submit-btn">Create Account</button>
+                </form>
+
+                <div class="divider">Or register with</div>
+
+                <div class="social-login">
+                    <button class="social-btn" type="button">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                    </button>
+                    <button class="social-btn" type="button">
+                        <svg viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 52.3-11.4 69.5-34.3z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 🛑 IMPORTANT: Replace this with your Railway backend URL
+    const BACKEND_URL = 'https://backend-production-a1dd.up.railway.app'; 
+    
+    // --- Utility Functions ---
+
+    function adjustContainerHeight() {
+        const container = document.getElementById('main-container');
+        if (!container.dataset.initialized) {
+            container.style.height = container.scrollHeight + 'px';
+            container.dataset.initialized = 'true';
+            return;
+        }
+
+        const startHeight = container.offsetHeight;
+        container.style.height = startHeight + 'px';
+
+        requestAnimationFrame(() => {
+            const newHeight = container.scrollHeight;
+            container.style.height = newHeight + 'px';
+        });
+    }
+
+    function triggerShake() {
+        const container = document.getElementById('main-container');
+        container.classList.remove('shake');
+        void container.offsetWidth; // Force reflow
+        container.classList.add('shake');
+        setTimeout(() => container.classList.remove('shake'), 400);
+    }
+    
+    function showLoginError(message, shake = true) {
+        const errorMsg = document.getElementById('login-error');
+        const forgotPw = document.getElementById('forgot-pw-container');
+        
+        errorMsg.textContent = message;
+        errorMsg.style.display = 'block';
+        forgotPw.classList.add('visible');
+        
+        if (shake) triggerShake();
+        adjustContainerHeight();
+    }
+    
+    function hideLoginError() {
+        document.getElementById('login-error').style.display = 'none';
+        document.getElementById('forgot-pw-container').classList.remove('visible');
+        adjustContainerHeight();
+    }
+
+    // --- 1. Login Handler (FIXED ReferenceError) ---
+    async function handleLogin(event) {
+        event.preventDefault();
+        hideLoginError();
+        
+        const form = event.target;
+        const email = form.querySelector('#login-email').value;
+        const password = form.querySelector('#login-password').value;
+        const loginBtn = form.querySelector('.submit-btn');
+
+        loginBtn.textContent = 'Signing in...';
+        loginBtn.disabled = true;
+
+        let response; 
+
+        try {
+            response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include', 
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                console.log('Login successful. Token:', data.token);
+                // SUCCESS: Redirect or handle UI update
+                loginBtn.textContent = 'Success! Redirecting...';
+                // window.location.href = '/dashboard.html'; 
+            } else {
+                showLoginError(data.error || 'Login failed. Check your credentials.', true);
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+            // This catches network errors (CORS, server down, etc.)
+            showLoginError('Network Error. Cannot connect to the server. (Check backend status)', true);
+        } finally {
+            // Restore button state only if the request failed or wasn't successful
+            if (!response || !response.ok) {
+                loginBtn.textContent = 'Sign In';
+                loginBtn.disabled = false;
+            }
+        }
+    }
+
+    // --- 2. Signup Handler ---
+    const signupFormElement = document.getElementById('signup-form-element');
+    const signupPassword = document.getElementById('signup-password');
+    const confirmPassword = document.getElementById('signup-confirm-password');
+    const passwordError = document.getElementById('password-error');
+    const signupBtn = signupFormElement.querySelector('.submit-btn');
+
+    signupFormElement.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        passwordError.style.display = 'none';
+
+        if (signupPassword.value !== confirmPassword.value) {
+            passwordError.textContent = 'Passwords do not match.';
+            passwordError.style.display = 'block';
+            adjustContainerHeight();
+            triggerShake();
+            return;
+        }
+        
+        const email = document.getElementById('signup-email').value;
+        const password = signupPassword.value;
+        
+        signupBtn.textContent = 'Registering...';
+        signupBtn.disabled = true;
+
+        let response;
+
+        try {
+            response = await fetch(`${BACKEND_URL}/api/auth/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // SUCCESS: Switch to login tab, show success message
+                switchTab('login');
+                showLoginError('Account created successfully! Please sign in.', false);
+                
+            } else {
+                // API error (e.g., User already exists, validation failed)
+                passwordError.textContent = data.error || 'Registration failed.';
+                passwordError.style.display = 'block';
+                triggerShake();
+                adjustContainerHeight();
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+            passwordError.textContent = 'Network Error. Could not register. (Check backend status)';
+            passwordError.style.display = 'block';
+            triggerShake();
+        } finally {
+            if (!response || !response.ok) {
+                signupBtn.textContent = 'Create Account';
+                signupBtn.disabled = false;
+            }
+        }
+    });
+
+
+    // --- UI/Animation Logic (switchTab and background effects) ---
+    
+    function switchTab(tab) {
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const loginTab = document.getElementById('login-tab');
+        const signupTab = document.getElementById('signup-tab');
+
+        const currentForm = tab === 'login' ? signupForm : loginForm;
+        const targetForm = tab === 'login' ? loginForm : signupForm;
+
+        if (targetForm.classList.contains('active')) return;
+
+        if (tab === 'login') {
+            loginTab.classList.add('active');
+            signupTab.classList.remove('active');
+        } else {
+            signupTab.classList.add('active');
+            loginTab.classList.remove('active');
+            document.getElementById('login-error').style.display = 'none'; // Clear login errors on tab switch
+        }
+
+        currentForm.style.opacity = '0';
+        currentForm.style.transform = 'translateY(5px)';
+
+        setTimeout(() => {
+            currentForm.classList.remove('active');
+            targetForm.classList.add('active');
+            adjustContainerHeight();
+
+            setTimeout(() => {
+                targetForm.style.opacity = '1';
+                targetForm.style.transform = 'translateY(0)';
+            }, 20);
+        }, 200);
+    }
+
+    window.addEventListener('load', () => {
+        const container = document.getElementById('main-container');
+        container.style.height = container.scrollHeight + 'px';
+
+        // Enable interactive glow on hover
+        container.addEventListener('mouseenter', () => {
+            document.body.classList.add('bg-hover');
+        });
+        container.addEventListener('mouseleave', () => {
+            document.body.classList.remove('bg-hover');
+        });
+        container.addEventListener('mousemove', (e) => {
+            const rect = document.body.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            document.documentElement.style.setProperty('--mouse-x', x + 'px');
+            document.documentElement.style.setProperty('--mouse-y', y + 'px');
+        });
+    });
+
+    // Floating messages
+    const messages = ["Review project", "Resource list", "Task list", "Study time", "Progress check", "Reminders"];
+    const responses = ["Bottlenecks found.", "PDFs generated.", "1. Email, 2. Code.", "25m deep work.", "85% complete.", "Set for 2 PM."];
+
+    function attachFloatingMessageInteractions(message, index, duration) {
+        let isDragging = false;
+        let dragMoved = false;
+        let startX = 0, startY = 0;
+        let offsetX = 0, offsetY = 0;
+
+        function expandMessage() {
+            if (message.classList.contains('expanded')) return;
+
+            const rect = message.getBoundingClientRect();
+            message.style.top = rect.top + 'px';
+            message.style.left = rect.left + 'px';
+            message.classList.add('expanded');
+
+            const existing = message.querySelector('.msg-answer');
+            if (existing) existing.remove();
+
+            const ans = document.createElement('div');
+            ans.className = 'msg-answer';
+            const cursor = document.createElement('span');
+            cursor.className = 'cursor';
+            ans.appendChild(cursor);
+            message.appendChild(ans);
+
+            let i = 0;
+            const txt = responses[index];
+
+            function type() {
+                if (i < txt.length) {
+                    cursor.before(txt.charAt(i));
+                    i++;
+                    setTimeout(type, 20);
+                } else {
+                    setTimeout(() => {
+                        message.style.opacity = '0';
+                        setTimeout(() => message.remove(), 500);
+                    }, 3000);
+                }
+            }
+
+            setTimeout(type, 300);
+        }
+
+        message.addEventListener('mousedown', (e) => {
+            if (message.classList.contains('expanded')) return;
+
+            isDragging = true;
+            dragMoved = false;
+
+            const rect = message.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            offsetX = rect.left;
+            offsetY = rect.top;
+
+            message.style.animation = 'none';
+            message.style.transition = 'none';
+
+            const onMouseMove = (ev) => {
+                if (!isDragging) return;
+
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+
+                if (Math.abs(dx) + Math.abs(dy) > 3) {
+                    dragMoved = true;
+                }
+
+                message.style.left = offsetX + dx + 'px';
+                message.style.top = offsetY + dy + 'px';
+            };
+
+            const onMouseUp = (ev) => {
+                isDragging = false;
+                window.removeEventListener('mousemove', onMouseMove);
+
+                if (!dragMoved) {
+                    expandMessage();
+                }
+            };
+
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp, { once: true });
+        });
+
+        // Auto-remove if never expanded within its float duration
+        setTimeout(() => {
+            if (!message.classList.contains('expanded')) {
+                message.remove();
+            }
+        }, duration * 1000);
+    }
+
+    function createFloatingMessage() {
+        if (document.querySelectorAll('.floating-message').length > 12) return;
+
+        const body = document.body;
+        const index = Math.floor(Math.random() * messages.length);
+        const message = document.createElement('div');
+        message.className = 'floating-message';
+
+        const qSpan = document.createElement('div');
+        qSpan.className = 'msg-question';
+        qSpan.textContent = messages[index];
+        message.appendChild(qSpan);
+
+        const duration = 15 + Math.random() * 15;
+        const startY = Math.random() * window.innerHeight;
+        const startX = Math.random() * window.innerWidth;
+        const endX = (Math.random() - 0.5) * 400;
+        const endY = (Math.random() - 0.5) * 400;
+
+        message.style.left = startX + 'px';
+        message.style.top = startY + 'px';
+        message.style.setProperty('--duration', duration + 's');
+        message.style.setProperty('--x-offset', endX + 'px');
+        message.style.setProperty('--y-offset', endY + 'px');
+
+        body.appendChild(message);
+
+        attachFloatingMessageInteractions(message, index, duration);
+    }
+
+    for (let i = 0; i < 8; i++) {
+        setTimeout(createFloatingMessage, Math.random() * 3000);
+    }
+
+    setInterval(createFloatingMessage, 1500);
+</script>
+
+</body>
+</html>
