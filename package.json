@@ -1,7 +1,7 @@
 {
   "name": "clarityai-backend",
   "version": "1.0.0",
-  "description": "Backend for ClarityAI authentication using Express and MySQL.",
+  "description": "ClarityAI authentication backend using Express and MySQL.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
