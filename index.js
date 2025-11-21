@@ -13,7 +13,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'FALLBACK_SECRET_CHANGE_THIS_IN_PRO
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRATION = '1d'; 
 
-// --- Database Connection Factory ---
 function getKnexInstance() {
     const connectionConfig = {
         host: process.env.DB_HOST,
@@ -21,7 +20,6 @@ function getKnexInstance() {
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
         port: process.env.DB_PORT || 3306,
-        // Added for external MySQL connections (like DreamHost)
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     };
 
@@ -32,7 +30,6 @@ function getKnexInstance() {
     });
 }
 
-// --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:5500', 
     'https://davs8.dreamhosters.com'
@@ -49,7 +46,6 @@ const corsOptions = {
     credentials: true,
 };
 
-// --- Middleware ---
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
@@ -57,28 +53,6 @@ app.use(cookieParser());
 const generateToken = (userId) => {
     return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION }); 
 };
-
-// --- SCHEMA INITIALIZATION (Self-Creation Logic) ---
-async function initializeDatabase() {
-    const db = getKnexInstance();
-    try {
-        console.log("Attempting to verify and create 'users' table...");
-
-        // This is the simplified, fail-safe schema creation. 
-        // It guarantees the table and the correct columns exist.
-        await db.schema.createTableIfNotExists('users', (table) => {
-            table.increments('id').primary();
-            table.string('email', 255).unique().notNullable();
-            table.string('password_hash', 255).notNullable(); // <--- GUARANTEED TO BE HERE NOW
-            table.timestamp('created_at').defaultTo(db.fn.now());
-        });
-        
-        console.log("Database initialized: 'users' table is ready.");
-    } catch (error) {
-        console.error("!!! FATAL DATABASE SCHEMA ERROR !!! Your database connection might be severely misconfigured.", error);
-    }
-}
-
 
 // --- Routes ---
 
@@ -108,10 +82,8 @@ app.post('/api/auth/signup', async (req, res) => {
         });
 
     } catch (error) {
-        // If the table was already created, but the previous bad column exists, 
-        // this will catch the error and log it.
         console.error('Signup error:', error);
-        res.status(500).json({ error: 'Internal Server Error. Check database connection or logs.' });
+        res.status(500).json({ error: 'Internal Server Error: Database operation failed.' });
     }
 });
 
@@ -152,7 +124,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Internal Server Error. Check database connection or logs.' });
+        res.status(500).json({ error: 'Internal Server Error: Database operation failed.' });
     }
 });
 
@@ -161,12 +133,6 @@ app.get('/', (req, res) => {
 });
 
 // --- START SERVER ---
-async function startServer() {
-    await initializeDatabase(); 
-    
-    app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-    });
-}
-
-startServer();
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
