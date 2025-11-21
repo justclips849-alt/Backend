@@ -1,6 +1,6 @@
-// index.js
-// 🚨 NOTE: This file assumes you have already run your Knex migration 
-// to create the 'users' table in your MySQL database on Railway.
+// index.js (Final Resilient Version)
+// This version is designed to START the server and send CORS headers, 
+// even if the database connection isn't immediately available.
 
 require('dotenv').config();
 const express = require('express');
@@ -9,9 +9,8 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// --- Knex Database Setup (for MySQL) ---
-// This configuration attempts to connect to the MySQL database using 
-// environment variables set on Railway.
+// --- Knex Database Setup Configuration ---
+// Knex is initialized with configuration, but the connection pooling starts only when needed.
 const knex = require('knex')({
     client: 'mysql2',
     connection: {
@@ -21,19 +20,19 @@ const knex = require('knex')({
         database: process.env.MYSQL_DATABASE,
         port: process.env.MYSQL_PORT || 3306,
     },
+    // Adding pool setting for stability
+    pool: { min: 0, max: 7 } 
 });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- Security Constants ---
-// Ensure JWT_SECRET is set in your Railway environment!
 const JWT_SECRET = process.env.JWT_SECRET || 'FALLBACK_SECRET_CHANGE_THIS_IN_PROD'; 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRATION = '1d'; 
 
 // --- CORS Configuration ---
-// Allows access only from your specific frontend and local development
 const allowedOrigins = [
     'http://localhost:5500', 
     'https://davs8.dreamhosters.com' // Your Frontend Domain
@@ -48,19 +47,15 @@ const corsOptions = {
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true, // Essential for session cookies
+    credentials: true,
 };
 
-// --- Middleware (Ordered for correctness) ---
+// --- Middleware (Execution Order is Critical) ---
 app.use(cors(corsOptions));
-app.use(express.json()); // Parses incoming JSON payloads
-app.use(cookieParser()); // Handles session cookies
+app.use(express.json());
+app.use(cookieParser());
 
 // --- Controller Logic Functions ---
-
-/**
- * Generates a JSON Web Token (JWT).
- */
 const generateToken = (userId) => {
     return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION }); 
 };
@@ -98,8 +93,9 @@ app.post('/api/auth/signup', async (req, res) => {
         });
 
     } catch (error) {
+        // This catches DB connection errors that happen mid-request
         console.error('Signup error:', error);
-        res.status(500).json({ error: 'Server error during registration.' });
+        res.status(500).json({ error: 'Server or Database error during registration.' });
     }
 });
 
@@ -126,10 +122,8 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
-        // 3. Generate token
+        // 3. Generate token and set cookie
         const token = generateToken(user.id);
-
-        // 4. Set JWT as HTTP-only session cookie
         res.cookie('token', token, {
             httpOnly: true, 
             secure: process.env.NODE_ENV === 'production', 
@@ -137,7 +131,7 @@ app.post('/api/auth/login', async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000 
         });
         
-        // 5. Respond
+        // 4. Respond
         res.status(200).json({ 
             message: 'Login successful.',
             token,
@@ -146,7 +140,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Server error during sign in.' });
+        res.status(500).json({ error: 'Server or Database error during sign in.' });
     }
 });
 
