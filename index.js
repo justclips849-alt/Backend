@@ -75,10 +75,23 @@ app.post('/api/auth/signup', async (req, res) => {
 
         const [insertId] = await db('users') 
             .insert({ email, password_hash });
+        
+        const userId = insertId;
+        const token = generateToken(userId); // Generate token for auto-login
 
+        // Set JWT cookie (Auto-login action)
+        res.cookie('token', token, {
+            httpOnly: true, 
+            secure: process.env.NODE_ENV === 'production', 
+            sameSite: 'Lax', 
+            maxAge: 24 * 60 * 60 * 1000 
+        });
+
+        // The frontend expects the token in the body to confirm success
         res.status(201).json({ 
-            message: 'Account created successfully. Proceed to sign in.',
-            userId: insertId
+            message: 'Account created successfully. Logging you in...',
+            userId: userId,
+            token: token // Sent back to frontend
         });
 
     } catch (error) {
