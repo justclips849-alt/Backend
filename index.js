@@ -1,4 +1,4 @@
-// index.js (Final Version designed to prevent 502/CORS errors)
+// index.js (Final Self-Healing Version)
 
 require('dotenv').config();
 const express = require('express');
@@ -10,15 +10,17 @@ const knex = require('knex');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// --- Security Constants ---
 const JWT_SECRET = process.env.JWT_SECRET || 'FALLBACK_SECRET_CHANGE_THIS_IN_PROD'; 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRATION = '1d'; 
 
 // --- Database Connection Factory ---
-// This function creates the Knex instance when needed, 
-// prioritizing the standard DATABASE_URL provided by Railway.
+// Creates the Knex instance using variables set on Railway.
 function getKnexInstance() {
     const connectionConfig = process.env.DATABASE_URL || {
+        // Uses individual variables if DATABASE_URL is not set
         host: process.env.MYSQL_HOST,
         user: process.env.MYSQL_USER,
         password: process.env.MYSQL_PASSWORD,
@@ -29,15 +31,14 @@ function getKnexInstance() {
     return knex({
         client: 'mysql2',
         connection: connectionConfig,
-        pool: { min: 0, max: 7 }
+        pool: { min: 0, max: 7 } // Added pool settings for stability
     });
 }
-
 
 // --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:5500', 
-    'https://davs8.dreamhosters.com' 
+    'https://davs8.dreamhosters.com' // Your Frontend Domain
 ];
 
 const corsOptions = {
@@ -52,10 +53,32 @@ const corsOptions = {
     credentials: true,
 };
 
-// --- Middleware (Execution Order is Critical for CORS) ---
+// --- Middleware ---
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
+// --- Database Initialization Function ---
+async function initializeDatabase() {
+    const db = getKnexInstance();
+    try {
+        console.log("Attempting to verify/create 'users' table...");
+        
+        await db.schema.createTableIfNotExists('users', (table) => {
+            table.increments('id').primary();
+            table.string('email', 255).unique().notNullable();
+            table.string('password_hash', 255).notNullable();
+            table.timestamp('created_at').defaultTo(db.fn.now());
+        });
+        
+        console.log("Database initialized: 'users' table is ready.");
+    } catch (error) {
+        console.error("!!! FATAL DATABASE SCHEMA ERROR !!!", error);
+        // We will NOT exit the process here, allowing the server to run for health checks, 
+        // but API calls will still fail until the DB is fixed.
+    }
+}
+
 
 // --- Controller Logic Functions ---
 const generateToken = (userId) => {
@@ -74,24 +97,19 @@ app.post('/api/auth/signup', async (req, res) => {
         return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    // Get the database instance inside the route handler
     const db = getKnexInstance();
 
     try {
-        // Check if user exists
         const existingUser = await db('users').where({ email }).first();
         if (existingUser) {
             return res.status(409).json({ error: 'User already exists.' });
         }
 
-        // Hash password
         const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
-        // Insert new user
         const [insertId] = await db('users') 
             .insert({ email, password_hash });
 
-        // Respond
         res.status(201).json({ 
             message: 'Account created successfully. Proceed to sign in.',
             userId: insertId
@@ -99,7 +117,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
     } catch (error) {
         console.error('Signup error:', error);
-        res.status(500).json({ error: 'Server or Database error during registration.' });
+        res.status(500).json({ error: 'Internal Server Error. Check database connection or logs.' });
     }
 });
 
@@ -113,26 +131,21 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    // Get the database instance inside the route handler
     const db = getKnexInstance();
 
     try {
-        // Find user
         const user = await db('users').where({ email }).first();
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
-        // Compare password
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
-        // Generate token
         const token = generateToken(user.id);
 
-        // Set JWT as HTTP-only session cookie
         res.cookie('token', token, {
             httpOnly: true, 
             secure: process.env.NODE_ENV === 'production', 
@@ -140,7 +153,6 @@ app.post('/api/auth/login', async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000 
         });
         
-        // Respond
         res.status(200).json({ 
             message: 'Login successful.',
             token,
@@ -149,7 +161,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Server or Database error during sign in.' });
+        res.status(500).json({ error: 'Internal Server Error. Check database connection or logs.' });
     }
 });
 
@@ -158,7 +170,14 @@ app.get('/', (req, res) => {
     res.send('ClarityAI Backend is running and endpoints are ready.');
 });
 
-// --- Start Server ---
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+// --- START SERVER ---
+async function startServer() {
+    // Run initialization before starting to listen for requests
+    await initializeDatabase(); 
+    
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+}
+
+startServer();
