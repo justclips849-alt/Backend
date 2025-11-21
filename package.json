@@ -1,13 +1,21 @@
 {
   "name": "clarityai-backend",
   "version": "1.0.0",
-  "description": "ClarityAI Express Backend",
+  "description": "Backend for ClarityAI authentication using Express and MySQL.",
   "main": "index.js",
-  "type": "commonjs",  <-- 🛑 ADDED THIS LINE TO FIX THE REQUIRE ERROR
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
+  "keywords": [
+    "express",
+    "auth",
+    "railway",
+    "knex",
+    "mysql"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
@@ -15,6 +23,10 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.9.7"
+    "knex": "^3.1.0",
+    "mysql2": "^3.9.7"  
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
