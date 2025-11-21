@@ -1,4 +1,4 @@
-// index.js (Final Resilient Backend Server)
+// index.js (Final Version designed to prevent 502/CORS errors)
 
 require('dotenv').config();
 const express = require('express');
@@ -8,32 +8,36 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const knex = require('knex');
 
-// --- Knex Database Setup (for MySQL) ---
-// This uses the environment variables from your Railway dashboard.
-const knexInstance = knex({
-    client: 'mysql2',
-    connection: {
+const app = express();
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'FALLBACK_SECRET_CHANGE_THIS_IN_PROD'; 
+const SALT_ROUNDS = 10;
+const TOKEN_EXPIRATION = '1d'; 
+
+// --- Database Connection Factory ---
+// This function creates the Knex instance when needed, 
+// prioritizing the standard DATABASE_URL provided by Railway.
+function getKnexInstance() {
+    const connectionConfig = process.env.DATABASE_URL || {
         host: process.env.MYSQL_HOST,
         user: process.env.MYSQL_USER,
         password: process.env.MYSQL_PASSWORD,
         database: process.env.MYSQL_DATABASE,
         port: process.env.MYSQL_PORT || 3306,
-    },
-    pool: { min: 0, max: 7 } 
-});
+    };
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+    return knex({
+        client: 'mysql2',
+        connection: connectionConfig,
+        pool: { min: 0, max: 7 }
+    });
+}
 
-// --- Security Constants ---
-const JWT_SECRET = process.env.JWT_SECRET || 'FALLBACK_SECRET_CHANGE_THIS_IN_PROD'; 
-const SALT_ROUNDS = 10;
-const TOKEN_EXPIRATION = '1d'; 
 
 // --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:5500', 
-    'https://davs8.dreamhosters.com' // Your Frontend Domain (Fixed)
+    'https://davs8.dreamhosters.com' 
 ];
 
 const corsOptions = {
@@ -45,7 +49,7 @@ const corsOptions = {
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true, // Essential for session cookies
+    credentials: true,
 };
 
 // --- Middleware (Execution Order is Critical for CORS) ---
@@ -70,9 +74,12 @@ app.post('/api/auth/signup', async (req, res) => {
         return res.status(400).json({ error: 'Email and password are required.' });
     }
 
+    // Get the database instance inside the route handler
+    const db = getKnexInstance();
+
     try {
         // Check if user exists
-        const existingUser = await knexInstance('users').where({ email }).first();
+        const existingUser = await db('users').where({ email }).first();
         if (existingUser) {
             return res.status(409).json({ error: 'User already exists.' });
         }
@@ -81,7 +88,7 @@ app.post('/api/auth/signup', async (req, res) => {
         const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
         // Insert new user
-        const [insertId] = await knexInstance('users') 
+        const [insertId] = await db('users') 
             .insert({ email, password_hash });
 
         // Respond
@@ -106,9 +113,12 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(400).json({ error: 'Email and password are required.' });
     }
 
+    // Get the database instance inside the route handler
+    const db = getKnexInstance();
+
     try {
         // Find user
-        const user = await knexInstance('users').where({ email }).first();
+        const user = await db('users').where({ email }).first();
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
@@ -145,7 +155,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 // Basic Health Check Route
 app.get('/', (req, res) => {
-    res.send('ClarityAI Backend (MySQL) is operational.');
+    res.send('ClarityAI Backend is running and endpoints are ready.');
 });
 
 // --- Start Server ---
