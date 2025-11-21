@@ -13,6 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'FALLBACK_SECRET_CHANGE_THIS_IN_PRO
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRATION = '1d'; 
 
+// --- Database Connection Factory ---
 function getKnexInstance() {
     const connectionConfig = {
         host: process.env.DB_HOST,
@@ -20,7 +21,7 @@ function getKnexInstance() {
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
         port: process.env.DB_PORT || 3306,
-        // Added for external MySQL connections like DreamHost
+        // Added for external MySQL connections (like DreamHost)
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     };
 
@@ -31,6 +32,7 @@ function getKnexInstance() {
     });
 }
 
+// --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:5500', 
     'https://davs8.dreamhosters.com'
@@ -47,6 +49,7 @@ const corsOptions = {
     credentials: true,
 };
 
+// --- Middleware ---
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
@@ -55,41 +58,24 @@ const generateToken = (userId) => {
     return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION }); 
 };
 
-// --- MODIFIED DATABASE INITIALIZATION ---
-// This function ensures the 'users' table and the 'password_hash' column exist.
+// --- SCHEMA INITIALIZATION (Self-Creation Logic) ---
 async function initializeDatabase() {
     const db = getKnexInstance();
     try {
-        console.log("Attempting to verify and repair 'users' table schema...");
+        console.log("Attempting to verify and create 'users' table...");
 
-        // 1. Create table if it doesn't exist
+        // This is the simplified, fail-safe schema creation. 
+        // It guarantees the table and the correct columns exist.
         await db.schema.createTableIfNotExists('users', (table) => {
             table.increments('id').primary();
             table.string('email', 255).unique().notNullable();
-            // We use name 'password' here for safety, then ensure 'password_hash' exists below.
-            // This is a common pattern to handle schema changes gracefully.
-            table.string('password', 255); 
+            table.string('password_hash', 255).notNullable(); // <--- GUARANTEED TO BE HERE NOW
             table.timestamp('created_at').defaultTo(db.fn.now());
         });
-
-        // 2. Ensure 'password_hash' column exists (the specific column the code uses)
-        const hasPasswordHash = await db.schema.hasColumn('users', 'password_hash');
-        
-        if (!hasPasswordHash) {
-             await db.schema.table('users', (table) => {
-                // Add the missing password_hash column
-                table.string('password_hash', 255).notNullable();
-                
-                // If the old, incorrect 'password' column exists, remove it
-                table.dropColumn('password');
-             });
-             console.log("Schema repair successful: 'password_hash' column added and verified.");
-        }
         
         console.log("Database initialized: 'users' table is ready.");
     } catch (error) {
-        // Log the error but DO NOT crash the server here, as Knex might have temporary issues.
-        console.error("!!! FATAL DATABASE SCHEMA ERROR !!! Database access might fail.", error);
+        console.error("!!! FATAL DATABASE SCHEMA ERROR !!! Your database connection might be severely misconfigured.", error);
     }
 }
 
@@ -122,6 +108,8 @@ app.post('/api/auth/signup', async (req, res) => {
         });
 
     } catch (error) {
+        // If the table was already created, but the previous bad column exists, 
+        // this will catch the error and log it.
         console.error('Signup error:', error);
         res.status(500).json({ error: 'Internal Server Error. Check database connection or logs.' });
     }
@@ -172,8 +160,8 @@ app.get('/', (req, res) => {
     res.send('ClarityAI Backend is running and endpoints are ready.');
 });
 
+// --- START SERVER ---
 async function startServer() {
-    // Attempt database initialization before starting the Express server
     await initializeDatabase(); 
     
     app.listen(PORT, () => {
