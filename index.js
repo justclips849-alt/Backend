@@ -1,5 +1,3 @@
-// index.js (Final Self-Healing Version)
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -11,34 +9,31 @@ const knex = require('knex');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Security Constants ---
 const JWT_SECRET = process.env.JWT_SECRET || 'FALLBACK_SECRET_CHANGE_THIS_IN_PROD'; 
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRATION = '1d'; 
 
-// --- Database Connection Factory ---
-// Creates the Knex instance using variables set on Railway.
 function getKnexInstance() {
-    const connectionConfig = process.env.DATABASE_URL || {
-        // Uses individual variables if DATABASE_URL is not set
-        host: process.env.MYSQL_HOST,
-        user: process.env.MYSQL_USER,
-        password: process.env.MYSQL_PASSWORD,
-        database: process.env.MYSQL_DATABASE,
-        port: process.env.MYSQL_PORT || 3306,
+    const connectionConfig = {
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+        port: process.env.DB_PORT || 3306,
+        // Added for external MySQL connections like DreamHost
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     };
 
     return knex({
         client: 'mysql2',
         connection: connectionConfig,
-        pool: { min: 0, max: 7 } // Added pool settings for stability
+        pool: { min: 0, max: 7 }
     });
 }
 
-// --- CORS Configuration ---
 const allowedOrigins = [
     'http://localhost:5500', 
-    'https://davs8.dreamhosters.com' // Your Frontend Domain
+    'https://davs8.dreamhosters.com'
 ];
 
 const corsOptions = {
@@ -46,50 +41,34 @@ const corsOptions = {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.warn('CORS Blocked Origin:', origin);
             callback(new Error('Not allowed by CORS'));
         }
     },
     credentials: true,
 };
 
-// --- Middleware ---
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
-// --- Database Initialization Function ---
+const generateToken = (userId) => {
+    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION }); 
+};
+
 async function initializeDatabase() {
     const db = getKnexInstance();
     try {
-        console.log("Attempting to verify/create 'users' table...");
-        
         await db.schema.createTableIfNotExists('users', (table) => {
             table.increments('id').primary();
             table.string('email', 255).unique().notNullable();
             table.string('password_hash', 255).notNullable();
             table.timestamp('created_at').defaultTo(db.fn.now());
         });
-        
-        console.log("Database initialized: 'users' table is ready.");
     } catch (error) {
-        console.error("!!! FATAL DATABASE SCHEMA ERROR !!!", error);
-        // We will NOT exit the process here, allowing the server to run for health checks, 
-        // but API calls will still fail until the DB is fixed.
+        console.error("!!! DATABASE SCHEMA ERROR !!!", error);
     }
 }
 
-
-// --- Controller Logic Functions ---
-const generateToken = (userId) => {
-    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION }); 
-};
-
-// --- Routes ---
-
-/**
- * POST /api/auth/signup: Handles new user registration.
- */
 app.post('/api/auth/signup', async (req, res) => {
     const { email, password } = req.body;
     
@@ -121,9 +100,6 @@ app.post('/api/auth/signup', async (req, res) => {
     }
 });
 
-/**
- * POST /api/auth/login: Handles user sign-in and session creation.
- */
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     
@@ -165,14 +141,11 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Basic Health Check Route
 app.get('/', (req, res) => {
     res.send('ClarityAI Backend is running and endpoints are ready.');
 });
 
-// --- START SERVER ---
 async function startServer() {
-    // Run initialization before starting to listen for requests
     await initializeDatabase(); 
     
     app.listen(PORT, () => {
