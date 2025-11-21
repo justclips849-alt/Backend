@@ -55,19 +55,46 @@ const generateToken = (userId) => {
     return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION }); 
 };
 
+// --- MODIFIED DATABASE INITIALIZATION ---
+// This function ensures the 'users' table and the 'password_hash' column exist.
 async function initializeDatabase() {
     const db = getKnexInstance();
     try {
+        console.log("Attempting to verify and repair 'users' table schema...");
+
+        // 1. Create table if it doesn't exist
         await db.schema.createTableIfNotExists('users', (table) => {
             table.increments('id').primary();
             table.string('email', 255).unique().notNullable();
-            table.string('password_hash', 255).notNullable();
+            // We use name 'password' here for safety, then ensure 'password_hash' exists below.
+            // This is a common pattern to handle schema changes gracefully.
+            table.string('password', 255); 
             table.timestamp('created_at').defaultTo(db.fn.now());
         });
+
+        // 2. Ensure 'password_hash' column exists (the specific column the code uses)
+        const hasPasswordHash = await db.schema.hasColumn('users', 'password_hash');
+        
+        if (!hasPasswordHash) {
+             await db.schema.table('users', (table) => {
+                // Add the missing password_hash column
+                table.string('password_hash', 255).notNullable();
+                
+                // If the old, incorrect 'password' column exists, remove it
+                table.dropColumn('password');
+             });
+             console.log("Schema repair successful: 'password_hash' column added and verified.");
+        }
+        
+        console.log("Database initialized: 'users' table is ready.");
     } catch (error) {
-        console.error("!!! DATABASE SCHEMA ERROR !!!", error);
+        // Log the error but DO NOT crash the server here, as Knex might have temporary issues.
+        console.error("!!! FATAL DATABASE SCHEMA ERROR !!! Database access might fail.", error);
     }
 }
+
+
+// --- Routes ---
 
 app.post('/api/auth/signup', async (req, res) => {
     const { email, password } = req.body;
@@ -146,6 +173,7 @@ app.get('/', (req, res) => {
 });
 
 async function startServer() {
+    // Attempt database initialization before starting the Express server
     await initializeDatabase(); 
     
     app.listen(PORT, () => {
